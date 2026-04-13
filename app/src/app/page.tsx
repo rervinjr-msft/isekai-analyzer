@@ -46,6 +46,8 @@ export default function Home() {
     initialLoadRef.current = loadInitialData().then(({ anime: a, categories: c }) => {
       setAnime(a);
       setCategories(c);
+    }).catch((error) => {
+      console.error("Failed to load initial data:", error);
     });
   }
 
