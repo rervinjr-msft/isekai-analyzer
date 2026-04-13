@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   ReactFlow,
   Node,
@@ -14,7 +14,7 @@ import {
   Panel,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AnalyzedAnime, StoryStage, BeatCategory } from "@/types";
+import { AnalyzedAnime, StoryStage, BeatCategory, formatArrivalLabel } from "@/types";
 
 interface FlowGraphProps {
   anime: AnalyzedAnime[];
@@ -69,8 +69,7 @@ function buildGraph(
     for (const beat of sortedBeats) {
       let label: string;
       if (beat.stage === "arrival" && beat.arrivalDetail) {
-        const { form, age, location } = beat.arrivalDetail;
-        label = age ? `${form} ${age} in ${location}` : `${form} in ${location}`;
+        label = formatArrivalLabel(beat.arrivalDetail);
       } else {
         const cat = categories.find((c) => c.id === beat.categoryId);
         label = cat?.name || beat.categoryId;
@@ -110,8 +109,7 @@ function buildGraph(
       for (const beat of sortedBeats) {
         let label: string;
         if (beat.stage === "arrival" && beat.arrivalDetail) {
-          const { form, age, location } = beat.arrivalDetail;
-          label = age ? `${form} ${age} in ${location}` : `${form} in ${location}`;
+          label = formatArrivalLabel(beat.arrivalDetail);
         } else {
           const cat = categories.find((c) => c.id === beat.categoryId);
           label = cat?.name || beat.categoryId;
@@ -217,8 +215,13 @@ export default function FlowGraph({
     [anime, categories, highlightedAnimeId, minAnimeCount, filterCategory]
   );
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  useEffect(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {

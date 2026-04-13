@@ -5,11 +5,25 @@ import { getAnimeByAnilistId, loadData } from "@/lib/storage";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { anilistId, title, override } = body as {
-      anilistId: number;
-      title: string;
-      override?: boolean;
-    };
+    const { anilistId, title, override } = body;
+
+    if (
+      typeof anilistId !== "number" ||
+      !Number.isInteger(anilistId) ||
+      anilistId <= 0
+    ) {
+      return NextResponse.json(
+        { error: "Invalid anilistId: must be a positive integer" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof title !== "string" || title.trim().length === 0 || title.length > 500) {
+      return NextResponse.json(
+        { error: "Invalid title: must be a non-empty string (max 500 chars)" },
+        { status: 400 }
+      );
+    }
 
     // Check for existing analysis
     const existing = getAnimeByAnilistId(anilistId);

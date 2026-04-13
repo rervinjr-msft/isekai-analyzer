@@ -27,7 +27,14 @@ export function loadData(): AppData {
     return defaultData;
   }
   const raw = fs.readFileSync(DATA_FILE, "utf-8");
-  return JSON.parse(raw) as AppData;
+  try {
+    return JSON.parse(raw) as AppData;
+  } catch {
+    console.error("Corrupt data file detected, resetting to defaults");
+    const defaultData = getDefaultData();
+    saveData(defaultData);
+    return defaultData;
+  }
 }
 
 export function saveData(data: AppData): void {

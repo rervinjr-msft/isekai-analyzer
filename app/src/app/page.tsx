@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
-import { AnalyzedAnime, BeatCategory } from "@/types";
+import { AnalyzedAnime, BeatCategory, formatArrivalLabel } from "@/types";
 import AnalysisForm from "@/components/AnalysisForm";
 import SidePanel from "@/components/SidePanel";
 import AnimeSearch from "@/components/AnimeSearch";
@@ -21,6 +21,9 @@ async function loadInitialData(): Promise<{ anime: AnalyzedAnime[]; categories: 
     fetch("/api/anime"),
     fetch("/api/taxonomy"),
   ]);
+  if (!animeRes.ok || !taxRes.ok) {
+    throw new Error("Failed to load data from server");
+  }
   const animeData = await animeRes.json();
   const taxData = await taxRes.json();
   return {
@@ -90,11 +93,7 @@ export default function Home() {
     return anime.filter((a) =>
       a.beats.some((b) => {
         if (b.stage === "arrival" && b.arrivalDetail) {
-          const { form, age, location } = b.arrivalDetail;
-          const label = age
-            ? `${form} ${age} in ${location}`
-            : `${form} in ${location}`;
-          return label === selectedCategory;
+          return formatArrivalLabel(b.arrivalDetail) === selectedCategory;
         }
         const cat = categories.find((c) => c.id === b.categoryId);
         return cat?.name === selectedCategory || b.categoryId === selectedCategory;
@@ -108,9 +107,7 @@ export default function Home() {
     for (const a of anime) {
       for (const b of a.beats) {
         if (b.stage === "arrival" && b.arrivalDetail) {
-          const { form, age, location } = b.arrivalDetail;
-          const label = age ? `${form} ${age} in ${location}` : `${form} in ${location}`;
-          used.add(label);
+          used.add(formatArrivalLabel(b.arrivalDetail));
         } else {
           const cat = categories.find((c) => c.id === b.categoryId);
           if (cat) used.add(cat.name);

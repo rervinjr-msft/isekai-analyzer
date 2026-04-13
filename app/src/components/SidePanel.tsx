@@ -1,6 +1,6 @@
 "use client";
 
-import { AnalyzedAnime, StoryStage } from "@/types";
+import { AnalyzedAnime, StoryStage, formatArrivalLabel } from "@/types";
 
 interface SidePanelProps {
   anime: AnalyzedAnime[];
@@ -99,7 +99,7 @@ export default function SidePanel({
               </div>
               <div className="text-sm font-medium mb-1">
                 {beat.stage === "arrival" && beat.arrivalDetail
-                  ? `${beat.arrivalDetail.form}${beat.arrivalDetail.age ? ` ${beat.arrivalDetail.age}` : ""} in ${beat.arrivalDetail.location}`
+                  ? formatArrivalLabel(beat.arrivalDetail)
                   : beat.categoryId}
               </div>
               <div className="text-xs opacity-80">{beat.rawText}</div>

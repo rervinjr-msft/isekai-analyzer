@@ -47,7 +47,11 @@ async function anilistFetch(query: string, variables: Record<string, unknown>): 
   if (!res.ok) {
     throw new Error(`AniList API error: ${res.status} ${res.statusText}`);
   }
-  return res.json();
+  const json = await res.json();
+  if (json.errors) {
+    throw new Error(`AniList GraphQL error: ${json.errors[0]?.message || "Unknown error"}`);
+  }
+  return json;
 }
 
 export async function searchAnime(search: string): Promise<AniListSearchResult[]> {

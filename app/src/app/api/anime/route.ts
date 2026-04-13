@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAnimeList, deleteAnime, addAnime, loadData, addCategory, findCategoryByName } from "@/lib/storage";
-import { AnalyzedAnime, Beat, BeatCategory } from "@/types";
+import { getAnimeList, deleteAnime, addAnime, getAnimeByAnilistId, loadData, addCategory, findCategoryByName } from "@/lib/storage";
+import { AnalyzedAnime, Beat, BeatCategory, StoryStage, formatArrivalLabel } from "@/types";
+
+const VALID_STAGES: StoryStage[] = ["departure", "transition", "arrival", "powers"];
 
 export async function GET() {
   try {
@@ -20,14 +22,34 @@ export async function POST(request: NextRequest) {
       newCategories?: Array<{ stage: string; name: string }>;
     };
 
+    // Basic validation
+    if (
+      !anime ||
+      typeof anime.anilistId !== "number" ||
+      typeof anime.title !== "string" ||
+      !Array.isArray(anime.beats)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid anime data" },
+        { status: 400 }
+      );
+    }
+
+    // Duplicate prevention
+    const existing = getAnimeByAnilistId(anime.anilistId);
+    if (existing) {
+      return NextResponse.json({ anime: existing, duplicate: true });
+    }
+
     // Add any new categories first
     if (newCategories) {
       for (const nc of newCategories) {
+        if (!VALID_STAGES.includes(nc.stage as StoryStage)) continue;
         const existing = findCategoryByName(nc.stage, nc.name);
         if (!existing) {
           const category: BeatCategory = {
             id: `${nc.stage}-${nc.name.replace(/[^a-z0-9]/gi, "-").toLowerCase()}`,
-            stage: nc.stage as BeatCategory["stage"],
+            stage: nc.stage as StoryStage,
             name: nc.name,
             isUserAdded: true,
           };
@@ -42,8 +64,7 @@ export async function POST(request: NextRequest) {
       let categoryId: string;
 
       if (beat.stage === "arrival" && beat.arrivalDetail) {
-        const { form, age, location } = beat.arrivalDetail;
-        const label = age ? `${form} ${age} in ${location}` : `${form} in ${location}`;
+        const label = formatArrivalLabel(beat.arrivalDetail);
         categoryId = `arrival-${label.replace(/[^a-z0-9]/gi, "-").toLowerCase()}`;
 
         // Ensure arrival category exists

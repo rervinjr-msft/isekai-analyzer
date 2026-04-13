@@ -40,9 +40,22 @@ async function chatWithRetry(
         temperature: 0.3,
         response_format: { type: "json_object" },
       });
-      return response.choices[0]?.message?.content || "";
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("Empty response from Azure OpenAI");
+      }
+      return content;
     } catch (error) {
       lastError = error as Error;
+      // Don't retry client errors (4xx) except rate limits (429)
+      if (
+        error instanceof OpenAI.APIError &&
+        error.status &&
+        error.status < 500 &&
+        error.status !== 429
+      ) {
+        throw error;
+      }
       if (attempt < maxRetries) {
         const delay = Math.pow(2, attempt) * 1000;
         await new Promise((resolve) => setTimeout(resolve, delay));
@@ -74,7 +87,21 @@ IMPORTANT: The confidence score represents the LIKELIHOOD of being isekai, NOT y
   ];
 
   const content = await chatWithRetry(messages);
-  const result = JSON.parse(content) as ClassificationResult;
+
+  let result: ClassificationResult;
+  try {
+    result = JSON.parse(content) as ClassificationResult;
+  } catch {
+    throw new Error("Failed to parse classification response from LLM");
+  }
+
+  if (
+    typeof result.isIsekai !== "boolean" ||
+    typeof result.confidence !== "number" ||
+    typeof result.explanation !== "string"
+  ) {
+    throw new Error("Invalid classification response shape from LLM");
+  }
 
   // Defense-in-depth: if isIsekai is false but confidence > 0.5, invert it
   if (!result.isIsekai && result.confidence > 0.5) {
@@ -129,7 +156,17 @@ Each stage can have multiple beats EXCEPT arrival (exactly one arrival beat).`,
   ];
 
   const content = await chatWithRetry(messages);
-  const result = JSON.parse(content) as ExtractionResult;
+
+  let result: ExtractionResult;
+  try {
+    result = JSON.parse(content) as ExtractionResult;
+  } catch {
+    throw new Error("Failed to parse beat extraction response from LLM");
+  }
+
+  if (!Array.isArray(result.beats)) {
+    throw new Error("Invalid extraction response shape from LLM");
+  }
 
   // Enforce single arrival beat
   const arrivalBeats = result.beats.filter((b) => b.stage === "arrival");

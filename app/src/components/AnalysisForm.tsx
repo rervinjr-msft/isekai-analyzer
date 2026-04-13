@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AniListSearchResult, ClassificationResult, ExtractionResult, AnalyzedAnime, Beat, ExtractedBeat } from "@/types";
+import { AniListSearchResult, ClassificationResult, ExtractionResult, AnalyzedAnime, Beat, ExtractedBeat, formatArrivalLabel } from "@/types";
+import { getCanonicalTitle } from "@/lib/anilist";
 import TitleSearch from "./TitleSearch";
 
 interface AnalysisFormProps {
@@ -31,15 +32,14 @@ export default function AnalysisForm({ onAnalysisComplete }: AnalysisFormProps) 
     setStep("classifying");
 
     try {
-      const canonicalTitle = result.title.english && result.title.english.trim() !== ""
-        ? result.title.english
-        : result.title.romaji;
+      const canonicalTitle = getCanonicalTitle(result);
 
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ anilistId: result.id, title: canonicalTitle }),
       });
+      if (!res.ok) throw new Error("Analysis request failed");
       const data = await res.json();
 
       if (data.cached) {
@@ -78,9 +78,7 @@ export default function AnalysisForm({ onAnalysisComplete }: AnalysisFormProps) 
     setError(null);
 
     try {
-      const canonicalTitle = selectedAnime.title.english && selectedAnime.title.english.trim() !== ""
-        ? selectedAnime.title.english
-        : selectedAnime.title.romaji;
+      const canonicalTitle = getCanonicalTitle(selectedAnime);
 
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -91,7 +89,15 @@ export default function AnalysisForm({ onAnalysisComplete }: AnalysisFormProps) 
           override: true,
         }),
       });
+      if (!res.ok) throw new Error("Analysis request failed");
       const data = await res.json();
+
+      if (data.cached) {
+        setCached(true);
+        setStep("search");
+        onAnalysisComplete();
+        return;
+      }
 
       if (data.classification && data.extraction) {
         setClassification(data.classification);
@@ -109,9 +115,7 @@ export default function AnalysisForm({ onAnalysisComplete }: AnalysisFormProps) 
     setStep("saving");
 
     try {
-      const canonicalTitle = selectedAnime.title.english && selectedAnime.title.english.trim() !== ""
-        ? selectedAnime.title.english
-        : selectedAnime.title.romaji;
+      const canonicalTitle = getCanonicalTitle(selectedAnime);
 
       const beats: Beat[] = extraction.beats.map((b: ExtractedBeat, i: number) => ({
         id: `beat-${Date.now()}-${i}`,
@@ -132,7 +136,7 @@ export default function AnalysisForm({ onAnalysisComplete }: AnalysisFormProps) 
         analyzedAt: new Date().toISOString(),
       };
 
-      await fetch("/api/anime", {
+      const saveRes = await fetch("/api/anime", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -140,6 +144,7 @@ export default function AnalysisForm({ onAnalysisComplete }: AnalysisFormProps) 
           newCategories: extraction.proposedCategories,
         }),
       });
+      if (!saveRes.ok) throw new Error("Failed to save anime");
 
       setStep("search");
       setSelectedAnime(null);
@@ -245,7 +250,7 @@ export default function AnalysisForm({ onAnalysisComplete }: AnalysisFormProps) 
                   </span>
                   <span className="text-sm text-white font-medium">
                     {beat.stage === "arrival" && beat.arrivalDetail
-                      ? `${beat.arrivalDetail.form}${beat.arrivalDetail.age ? ` ${beat.arrivalDetail.age}` : ""} in ${beat.arrivalDetail.location}`
+                      ? formatArrivalLabel(beat.arrivalDetail)
                       : beat.categoryName}
                   </span>
                 </div>

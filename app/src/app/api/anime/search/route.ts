@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q");
-    if (!query || query.length < 2) {
+    if (!query || query.length < 2 || query.length > 200) {
       return NextResponse.json({ results: [] });
     }
     const results = await searchAnime(query);

@@ -8,6 +8,12 @@ export interface ArrivalDetail {
   location: string;
 }
 
+export function formatArrivalLabel(detail: ArrivalDetail): string {
+  return detail.age
+    ? `${detail.form} ${detail.age} in ${detail.location}`
+    : `${detail.form} in ${detail.location}`;
+}
+
 export interface Beat {
   id: string;
   stage: StoryStage;
